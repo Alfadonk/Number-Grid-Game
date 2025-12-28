@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Grid Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .game-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .game-header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .score {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .new-game-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .hint-btn {
+            background: #FF9800;
+            color: white;
+        }
+
+        .restart-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(20, 1fr);
+            gap: 4px;
+            margin-bottom: 30px;
+        }
+
+        .block {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+            color: white;
+        }
+
+        .block:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .block.selected {
+            border: 3px solid #FFD700;
+            box-shadow: 0 0 20px #FFD700;
+        }
+
+        /* Color coding for numbers 1-9 */
+        .block-1 { background: #FF6B6B; }
+        .block-2 { background: #4ECDC4; }
+        .block-3 { background: #45B7D1; }
+        .block-4 { background: #96CEB4; }
+        .block-5 { background: #FFEAA7; color: #333; }
+        .block-6 { background: #DDA0DD; }
+        .block-7 { background: #98D8C8; }
+        .block-8 { background: #F7DC6F; color: #333; }
+        .block-9 { background: #BB8FCE; }
+        .block-0 { background: #E0E0E0; cursor: default; color: #999; }
+
+        .instructions {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .instructions h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            list-style-position: inside;
+            color: #333;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .message-box {
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 60px;
+            margin-top: 20px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>🔢 Number Grid Game</h1>
+            <p>Connect two numbers that sum to 10!</p>
+        </div>
+
+        <div class="instructions">
+            <h3>🎮 How to Play:</h3>
+            <ul>
+                <li>Click on a number block to select it</li>
+                <li>Click on another block to try to make a pair summing to 10</li>
+                <li>Valid pairs will be cleared from the board</li>
+                <li>Clear as many pairs as possible!</li>
+                <li>Game ends when no more valid pairs exist</li>
+            </ul>
+        </div>
+
+        <div class="game-info">
+            <div class="score">Score: <span id="score">[[${score != null ? score : 0}]]</span></div>
+            <div class="controls">
+                <button class="new-game-btn" onclick="window.location.href='/game/start'">🆕 New Game</button>
+                <button class="hint-btn" onclick="getHint()">💡 Get Hint</button>
+                <button class="restart-btn" onclick="restartGame()">🔄 Restart</button>
+            </div>
+        </div>
+
+        <div id="gameBoard" class="game-board">
+            <!-- Game grid will be generated by JavaScript -->
+        </div>
+
+        <div class="message-box" id="messageBox">
+            Loading game...
+        </div>
+    </div>
+
+    <script>
+        // Game ID from Thymeleaf - keep it simple
+        const currentGameId = '[[${gameId}]]';
+        
+        console.log('Game ID:', currentGameId);
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing game...');
+            
+            if (currentGameId && currentGameId !== '') {
+                // Load game data via API call
+                loadGameData();
+            } else {
+                showMessage('Error: No game ID found. Please refresh the page.', true);
+            }
+        });
+        
+        function loadGameData() {
+            console.log('Loading game data for ID:', currentGameId);
+            
+            // First try to get existing game state
+            fetch('/game/api/state?gameId=' + currentGameId)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Game data received:', data);
+                    
+                    if (data.error) {
+                        showMessage('Error: ' + data.error, true);
+                        return;
+                    }
+                    
+                    if (data.grid && Array.isArray(data.grid)) {
+                        initializeGame(data.grid);
+                        document.getElementById('score').textContent = data.score || 0;
+                        showMessage('Game loaded! Select two numbers that sum to 10.');
+                    } else {
+                        showMessage('Error: Invalid game data received', true);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading game:', error);
+                    showMessage('Error loading game. Please refresh the page or start a new game.', true);
+                });
+        }
+        
+        function initializeGame(grid) {
+            const gameBoard = document.getElementById('gameBoard');
+            gameBoard.innerHTML = '';
+            
+            console.log('Initializing grid with dimensions:', grid.length, 'x', grid[0]?.length || 0);
+            
+            // Create 10x20 grid
+            for (let row = 0; row < 10; row++) {
+                for (let col = 0; col < 20; col++) {
+                    const block = document.createElement('div');
+                    let value = 0;
+                    
+                    // Get value from grid
+                    if (grid[row] && grid[row][col] !== undefined) {
+                        // Handle both object format and simple number format
+                        if (typeof grid[row][col] === 'object') {
+                            value = grid[row][col].value || 0;
+                        } else {
+                            value = grid[row][col] || 0;
+                        }
+                    }
+                    
+                    block.className = `block block-${value}`;
+                    block.textContent = value > 0 ? value : '';
+                    block.dataset.row = row;
+                    block.dataset.col = col;
+                    
+                    // Only make clickable if not empty
+                    if (value > 0) {
+                        block.onclick = () => selectBlock(row, col);
+                    } else {
+                        block.style.cursor = 'default';
+                    }
+                    
+                    gameBoard.appendChild(block);
+                }
+            }
+        }
+        
+        function selectBlock(row, col) {
+            console.log('Selecting block at:', row, col, 'for game:', currentGameId);
+            
+            if (!currentGameId || currentGameId === '') {
+                showMessage("Please start a new game first!", true);
+                return;
+            }
+            
+            fetch('/game/select', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `gameId=${currentGameId}&row=${row}&col=${col}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Select response:', data);
+                
+                if (data.error) {
+                    showMessage('Error: ' + data.error, true);
+                    return;
+                }
+                
+                updateGameState(data);
+            })
+            .catch(error => {
+                console.error('Error selecting block:', error);
+                showMessage('Error: ' + error.message, true);
+            });
+        }
+        
+        function getHint() {
+            if (!currentGameId || currentGameId === '') {
+                showMessage("Please start a new game first!", true);
+                return;
+            }
+            
+            fetch('/game/hint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `gameId=${currentGameId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessage('Error: ' + data.error, true);
+                    return;
+                }
+                
+                if (data.messages && data.messages.length > 0) {
+                    showMessage(data.messages[0]);
+                }
+            })
+            .catch(error => {
+                console.error('Error getting hint:', error);
+                showMessage('Error getting hint', true);
+            });
+        }
+        
+        function restartGame() {
+            if (!currentGameId || currentGameId === '') {
+                showMessage("No game to restart!", true);
+                return;
+            }
+            
+            fetch('/game/restart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `gameId=${currentGameId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessage('Error: ' + data.error, true);
+                    return;
+                }
+                
+                updateGameState(data);
+                showMessage('Game restarted!');
+            })
+            .catch(error => {
+                console.error('Error restarting game:', error);
+                showMessage('Error restarting game', true);
+            });
+        }
+        
+        function updateGameState(data) {
+            if (data.score !== undefined) {
+                document.getElementById('score').textContent = data.score;
+            }
+            if (data.grid) {
+                initializeGame(data.grid);
+            }
+            if (data.messages && data.messages.length > 0) {
+                showMessage(data.messages.join(' '));
+            }
+            if (data.gameOver) {
+                showMessage('Game Over! Final Score: ' + (data.score || 0));
+            }
+        }
+        
+        function showMessage(message, isError = false) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.innerHTML = isError ? 
+                `<span style="color: #FF6B6B;">❌ ${message}</span>` : 
+                `💬 ${message}`;
+            console.log('Message:', message);
+        }
+    </script>
+</body>
+</html>
