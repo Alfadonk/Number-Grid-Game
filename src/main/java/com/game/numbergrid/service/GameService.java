@@ -69,7 +69,6 @@ public class GameService {
             for (Block block : selectedBlocks) {
                 block.setValue(0);
                 block.setSelected(false);
-                block.setHinted(false);
             }
             
             // Calculate score: 10 points per block × combo multiplier
@@ -137,68 +136,45 @@ public class GameService {
     }
 
     private boolean isGameComplete(Block[][] grid) {
-        // Check if there are any connected combos that sum to a multiple of 10
-        return !hasConnectedCombo(grid);
-    }
-
-    // Check if there are any connected combos available
-    private boolean hasConnectedCombo(Block[][] grid) {
-        boolean[][] visited = new boolean[10][20];
-        
-        // Check from each block
+        // Check if there are any combos that sum to a multiple of 10
+        List<Block> availableBlocks = new ArrayList<>();
         for (int row = 0; row < 10; row++) {
             for (int col = 0; col < 20; col++) {
-                if (!grid[row][col].isEmpty() && !visited[row][col]) {
-                    if (hasConnectedComboFrom(grid, row, col, visited, 
-                                            new ArrayList<>(), 0, 4)) {
-                        return true;
-                    }
+                if (!grid[row][col].isEmpty()) {
+                    availableBlocks.add(grid[row][col]);
                 }
             }
         }
-        return false;
-    }
-    
-    private boolean hasConnectedComboFrom(Block[][] grid, int row, int col,
-                                         boolean[][] visited, List<Block> currentCombo,
-                                         int currentSum, int maxSize) {
-        visited[row][col] = true;
-        Block currentBlock = grid[row][col];
-        currentCombo.add(currentBlock);
-        int newSum = currentSum + currentBlock.getValue();
         
-        // Check if current combo is valid
-        if (currentCombo.size() >= 2 && newSum % 10 == 0) {
+        // Check all possible combos (up to 4 blocks for performance)
+        return !hasValidCombo(availableBlocks, 0, new ArrayList<>(), 0, 4);
+    }
+
+    // Recursive method to check for valid combos
+    private boolean hasValidCombo(List<Block> blocks, int startIndex, 
+                                 List<Block> currentCombo, int currentSum, int maxComboSize) {
+        // If we have at least 2 blocks and sum is multiple of 10, return true
+        if (currentCombo.size() >= 2 && currentSum % 10 == 0) {
             return true;
         }
         
-        // If we haven't reached max size, explore adjacent blocks
-        if (currentCombo.size() < maxSize) {
-            // Check adjacent blocks in all 8 directions
-            int[][] directions = {
-                {-1, -1}, {-1, 0}, {-1, 1},
-                {0, -1},           {0, 1},
-                {1, -1},  {1, 0},  {1, 1}
-            };
-            
-            for (int[] dir : directions) {
-                int newRow = row + dir[0];
-                int newCol = col + dir[1];
-                
-                if (newRow >= 0 && newRow < 10 && newCol >= 0 && newCol < 20 &&
-                    !grid[newRow][newCol].isEmpty() && !visited[newRow][newCol]) {
-                    
-                    if (hasConnectedComboFrom(grid, newRow, newCol, visited,
-                                            currentCombo, newSum, maxSize)) {
-                        return true;
-                    }
-                }
-            }
+        // If combo size limit reached, stop
+        if (currentCombo.size() >= maxComboSize) {
+            return false;
         }
         
-        // Backtrack
-        currentCombo.remove(currentCombo.size() - 1);
-        visited[row][col] = false;
+        // Try adding more blocks
+        for (int i = startIndex; i < blocks.size(); i++) {
+            Block block = blocks.get(i);
+            currentCombo.add(block);
+            int newSum = currentSum + block.getValue();
+            
+            if (hasValidCombo(blocks, i + 1, currentCombo, newSum, maxComboSize)) {
+                return true;
+            }
+            
+            currentCombo.remove(currentCombo.size() - 1);
+        }
         
         return false;
     }
@@ -208,139 +184,60 @@ public class GameService {
         Block[][] grid = game.getGrid();
         clearHints(grid);
         
-        // Find connected combos (blocks that can be selected together)
-        List<List<Block>> connectedCombos = findConnectedCombos(grid);
+        List<Block> availableBlocks = new ArrayList<>();
+        for (int row = 0; row < 10; row++) {
+            for (int col = 0; col < 20; col++) {
+                if (!grid[row][col].isEmpty()) {
+                    availableBlocks.add(grid[row][col]);
+                }
+            }
+        }
         
-        if (!connectedCombos.isEmpty()) {
-            // Get the best combo (largest or simplest)
-            List<Block> hintCombo = selectBestHintCombo(connectedCombos);
-            
+        // Find first valid combo for hint (up to 3 blocks for simplicity)
+        List<Block> hintCombo = findHintCombo(availableBlocks, 0, new ArrayList<>(), 0, 3);
+        
+        if (hintCombo != null && hintCombo.size() >= 2) {
             // Highlight the blocks in the hint combo
             for (Block block : hintCombo) {
                 block.setHinted(true);
             }
             
-            // Calculate the sum and score
+            // Calculate the sum
             int totalSum = hintCombo.stream().mapToInt(Block::getValue).sum();
-            int comboSize = hintCombo.size();
-            int potentialScore = 10 * comboSize * comboSize;
-            
-            // Give helpful message about the hint
-            String message;
-            if (comboSize == 2) {
-                message = "Hint: Two connected numbers (" + hintCombo.get(0).getValue() + 
-                         " + " + hintCombo.get(1).getValue() + " = " + totalSum + 
-                         ") - Score: +" + potentialScore;
-            } else {
-                message = "Hint: " + comboSize + " connected blocks sum to " + totalSum + 
-                         " - Score: +" + potentialScore;
-            }
-            game.addMessage(message);
+            game.addMessage("Hint: Try connecting " + hintCombo.size() + 
+                " blocks that sum to " + totalSum + " (multiple of 10)");
         } else {
             game.addMessage("No more valid moves!");
         }
         
         return game;
     }
-    
-    // Find all connected combos that sum to a multiple of 10
-    private List<List<Block>> findConnectedCombos(Block[][] grid) {
-        List<List<Block>> connectedCombos = new ArrayList<>();
-        boolean[][] visited = new boolean[10][20];
-        
-        // Find all blocks and check for connected combos starting from each block
-        for (int row = 0; row < 10; row++) {
-            for (int col = 0; col < 20; col++) {
-                if (!grid[row][col].isEmpty()) {
-                    // Reset visited for new starting point
-                    for (int i = 0; i < 10; i++) {
-                        for (int j = 0; j < 20; j++) {
-                            visited[i][j] = false;
-                        }
-                    }
-                    
-                    // Try to find connected combos starting from this block
-                    List<List<Block>> combosFromHere = findConnectedCombosFrom(
-                        grid, row, col, visited, new ArrayList<>(), 0, 4);
-                    connectedCombos.addAll(combosFromHere);
-                }
-            }
+
+    private List<Block> findHintCombo(List<Block> blocks, int startIndex,
+                                     List<Block> currentCombo, int currentSum, int maxComboSize) {
+        // Return if we found a valid combo of at least 2 blocks
+        if (currentCombo.size() >= 2 && currentSum % 10 == 0) {
+            return new ArrayList<>(currentCombo);
         }
         
-        return connectedCombos;
-    }
-    
-    // Find connected combos starting from a specific position
-    private List<List<Block>> findConnectedCombosFrom(Block[][] grid, int row, int col, 
-                                                     boolean[][] visited,
-                                                     List<Block> currentCombo, 
-                                                     int currentSum, int maxSize) {
-        List<List<Block>> combos = new ArrayList<>();
-        
-        // Mark as visited for this search path
-        visited[row][col] = true;
-        Block currentBlock = grid[row][col];
-        currentCombo.add(currentBlock);
-        int newSum = currentSum + currentBlock.getValue();
-        
-        // Check if current combo is valid (at least 2 blocks, sum is multiple of 10)
-        if (currentCombo.size() >= 2 && newSum % 10 == 0) {
-            combos.add(new ArrayList<>(currentCombo));
+        if (currentCombo.size() >= maxComboSize) {
+            return null;
         }
         
-        // If we haven't reached max size, explore adjacent blocks
-        if (currentCombo.size() < maxSize) {
-            // Check adjacent blocks (up, down, left, right, and diagonals)
-            int[][] directions = {
-                {-1, -1}, {-1, 0}, {-1, 1},  // Top row
-                {0, -1},           {0, 1},   // Middle (skip current)
-                {1, -1},  {1, 0},  {1, 1}    // Bottom row
-            };
+        for (int i = startIndex; i < blocks.size(); i++) {
+            Block block = blocks.get(i);
+            currentCombo.add(block);
+            int newSum = currentSum + block.getValue();
             
-            for (int[] dir : directions) {
-                int newRow = row + dir[0];
-                int newCol = col + dir[1];
-                
-                // Check bounds and if block is not empty
-                if (newRow >= 0 && newRow < 10 && newCol >= 0 && newCol < 20 &&
-                    !grid[newRow][newCol].isEmpty() && !visited[newRow][newCol]) {
-                    
-                    // Recursively search from adjacent block
-                    combos.addAll(findConnectedCombosFrom(
-                        grid, newRow, newCol, visited, currentCombo, newSum, maxSize));
-                }
+            List<Block> result = findHintCombo(blocks, i + 1, currentCombo, newSum, maxComboSize);
+            if (result != null) {
+                return result;
             }
+            
+            currentCombo.remove(currentCombo.size() - 1);
         }
         
-        // Backtrack
-        currentCombo.remove(currentCombo.size() - 1);
-        visited[row][col] = false;
-        
-        return combos;
-    }
-    
-    // Select the best hint combo to show
-    private List<Block> selectBestHintCombo(List<List<Block>> combos) {
-        if (combos.isEmpty()) {
-            return new ArrayList<>();
-        }
-        
-        // Prefer smaller combos for simplicity (easier to see and select)
-        List<Block> bestCombo = combos.get(0);
-        for (List<Block> combo : combos) {
-            if (combo.size() < bestCombo.size()) {
-                bestCombo = combo;
-            } else if (combo.size() == bestCombo.size()) {
-                // If same size, prefer combo with higher sum (more impressive)
-                int comboSum = combo.stream().mapToInt(Block::getValue).sum();
-                int bestSum = bestCombo.stream().mapToInt(Block::getValue).sum();
-                if (comboSum > bestSum) {
-                    bestCombo = combo;
-                }
-            }
-        }
-        
-        return bestCombo;
+        return null;
     }
 
     // Method to clear hint after it's been viewed
