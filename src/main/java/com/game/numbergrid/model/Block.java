@@ -5,12 +5,14 @@ public class Block {
     private int row;
     private int col;
     private boolean selected;
+    private boolean hinted; // New: for hint glow effect
 
     public Block(int row, int col) {
         this.row = row;
         this.col = col;
         this.value = 0;
         this.selected = false;
+        this.hinted = false;
     }
 
     // Getters and Setters
@@ -22,5 +24,7 @@ public class Block {
     public void setCol(int col) { this.col = col; }
     public boolean isSelected() { return selected; }
     public void setSelected(boolean selected) { this.selected = selected; }
+    public boolean isHinted() { return hinted; }
+    public void setHinted(boolean hinted) { this.hinted = hinted; }
     public boolean isEmpty() { return value == 0; }
 }

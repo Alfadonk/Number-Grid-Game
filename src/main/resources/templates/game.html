@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Number Grid Game</title>
+    <title>Number Grid Game - Enhanced</title>
     <style>
         * {
             margin: 0;
@@ -13,15 +13,17 @@
 
         body {
             font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
             min-height: 100vh;
             padding: 20px;
+            user-select: none;
+            overflow-x: hidden;
         }
 
         .game-container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -35,9 +37,10 @@
         }
 
         .game-header h1 {
-            color: #333;
+            color: #2c3e50;
             font-size: 2.5em;
             margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
         }
 
         .game-info {
@@ -48,12 +51,24 @@
             padding: 20px;
             background: #f8f9fa;
             border-radius: 10px;
+            border: 2px solid #e0e0e0;
         }
 
         .score {
             font-size: 1.5em;
             font-weight: bold;
-            color: #667eea;
+            color: #2c3e50;
+        }
+
+        .score-value {
+            color: #e74c3c;
+            font-size: 1.2em;
+        }
+
+        .combo-info {
+            font-size: 1em;
+            color: #3498db;
+            margin-left: 10px;
         }
 
         .controls {
@@ -69,26 +84,31 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .new-game-btn {
-            background: #4CAF50;
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
             color: white;
         }
 
         .hint-btn {
-            background: #FF9800;
+            background: linear-gradient(135deg, #f39c12 0%, #f1c40f 100%);
             color: white;
         }
 
         .restart-btn {
-            background: #2196F3;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
             color: white;
         }
 
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
         }
 
         .game-board {
@@ -96,6 +116,12 @@
             grid-template-columns: repeat(20, 1fr);
             gap: 4px;
             margin-bottom: 30px;
+            padding: 10px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            position: relative;
+            touch-action: none;
+            min-height: 400px;
         }
 
         .block {
@@ -107,87 +133,249 @@
             font-weight: bold;
             border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             user-select: none;
             color: white;
+            position: relative;
+            z-index: 1;
         }
 
-        .block:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        /* All blocks same color for challenge */
+        .block-1, .block-2, .block-3, .block-4, .block-5,
+        .block-6, .block-7, .block-8, .block-9 {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            border: 2px solid #2980b9;
+        }
+
+        .block-0 { 
+            background: #bdc3c7; 
+            cursor: default; 
+            border: 2px solid #95a5a6;
+        }
+
+        .block:hover:not(.block-0) {
+            transform: scale(1.08);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            z-index: 10;
         }
 
         .block.selected {
-            border: 3px solid #FFD700;
-            box-shadow: 0 0 20px #FFD700;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            border: 2px solid #c0392b;
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.7);
+            z-index: 5;
         }
 
-        /* Color coding for numbers 1-9 */
-        .block-1 { background: #FF6B6B; }
-        .block-2 { background: #4ECDC4; }
-        .block-3 { background: #45B7D1; }
-        .block-4 { background: #96CEB4; }
-        .block-5 { background: #FFEAA7; color: #333; }
-        .block-6 { background: #DDA0DD; }
-        .block-7 { background: #98D8C8; }
-        .block-8 { background: #F7DC6F; color: #333; }
-        .block-9 { background: #BB8FCE; }
-        .block-0 { background: #E0E0E0; cursor: default; color: #999; }
+        /* Glow effect for hinted blocks */
+        .block.hinted {
+            animation: glow 1.5s ease-in-out infinite alternate;
+            box-shadow: 0 0 20px rgba(241, 196, 15, 0.8);
+            z-index: 5;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 10px rgba(241, 196, 15, 0.6),
+                            0 0 20px rgba(241, 196, 15, 0.4),
+                            0 0 30px rgba(241, 196, 15, 0.2);
+            }
+            to {
+                box-shadow: 0 0 20px rgba(241, 196, 15, 0.8),
+                            0 0 30px rgba(241, 196, 15, 0.6),
+                            0 0 40px rgba(241, 196, 15, 0.4);
+            }
+        }
+
+        /* Drag selection rectangle - FIXED POSITIONING */
+        .selection-rect {
+            position: absolute;
+            background: rgba(52, 152, 219, 0.2);
+            border: 2px solid #3498db;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 1000;
+        }
 
         .instructions {
-            background: #e3f2fd;
+            background: #e8f4fc;
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
+            border-left: 5px solid #3498db;
         }
 
         .instructions h3 {
-            color: #1976D2;
+            color: #2c3e50;
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .instructions ul {
             list-style-position: inside;
-            color: #333;
+            color: #2c3e50;
         }
 
         .instructions li {
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            padding-left: 10px;
+        }
+
+        .instructions strong {
+            color: #e74c3c;
         }
 
         .message-box {
-            background: #333;
+            background: #2c3e50;
             color: white;
             padding: 15px;
             border-radius: 8px;
             min-height: 60px;
             margin-top: 20px;
             font-family: monospace;
+            border-left: 5px solid #3498db;
+        }
+
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .game-over-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .game-over h2 {
+            color: #e74c3c;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+
+        .final-score {
+            font-size: 3em;
+            color: #27ae60;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        /* Combo display */
+        .combo-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 100;
+            border: 2px solid #3498db;
+            min-width: 180px;
+        }
+
+        .combo-display h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .combo-item {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .combo-sum {
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 1.1em;
+        }
+
+        .combo-count {
+            color: #3498db;
+        }
+
+        .combo-multiplier {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .combo-valid {
+            border-color: #27ae60;
+            background: rgba(39, 174, 96, 0.05);
+        }
+
+        .combo-invalid {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.05);
         }
     </style>
 </head>
 <body>
+    <div class="combo-display" id="comboDisplay" style="display: none;">
+        <h3>Current Selection</h3>
+        <div class="combo-item">Sum: <span id="comboSum" class="combo-sum">0</span></div>
+        <div class="combo-item">Blocks: <span id="comboCount" class="combo-count">0</span></div>
+        <div class="combo-item">Multiplier: <span id="comboMultiplier" class="combo-multiplier">1x</span></div>
+    </div>
+
     <div class="game-container">
         <div class="game-header">
-            <h1>🔢 Number Grid Game</h1>
-            <p>Connect two numbers that sum to 10!</p>
+            <h1>🎮 Number Grid Game - Combo Edition</h1>
+            <p>Drag to select multiple numbers! Sum must be a multiple of 10.</p>
         </div>
 
         <div class="instructions">
-            <h3>🎮 How to Play:</h3>
+            <h3>🎯 How to Play:</h3>
             <ul>
-                <li>Click on a number block to select it</li>
-                <li>Click on another block to try to make a pair summing to 10</li>
-                <li>Valid pairs will be cleared from the board</li>
-                <li>Clear as many pairs as possible!</li>
-                <li>Game ends when no more valid pairs exist</li>
+                <li><strong>Click and drag</strong> to select multiple numbers</li>
+                <li><strong>Release</strong> to submit your combo</li>
+                <li><strong>Combo must sum to a multiple of 10</strong> (10, 20, 30, etc.)</li>
+                <li><strong>More blocks = higher score!</strong> Formula: 10 × blocks × multiplier</li>
+                <li>Click <strong>Get Hint</strong> to see glowing blocks that can make a valid combo</li>
+                <li>Click <strong>Restart</strong> to reset the current game</li>
             </ul>
         </div>
 
         <div class="game-info">
-            <div class="score">Score: <span id="score">[[${score != null ? score : 0}]]</span></div>
+            <div class="score">
+                Score: <span id="score" class="score-value">0</span>
+                <span id="comboInfo" class="combo-info"></span>
+            </div>
             <div class="controls">
-                <button class="new-game-btn" onclick="window.location.href='/game/start'">🆕 New Game</button>
+                <button class="new-game-btn" onclick="startNewGame()">🆕 New Game</button>
                 <button class="hint-btn" onclick="getHint()">💡 Get Hint</button>
                 <button class="restart-btn" onclick="restartGame()">🔄 Restart</button>
             </div>
@@ -198,37 +386,320 @@
         </div>
 
         <div class="message-box" id="messageBox">
-            Loading game...
+            Ready to play! Click and drag to select numbers, then release to submit.
         </div>
     </div>
 
     <script>
-        // Game ID from Thymeleaf - keep it simple
-        const currentGameId = '[[${gameId}]]';
-        
-        console.log('Game ID:', currentGameId);
+        // Game state
+        let currentGameId = '';
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let currentX = 0;
+        let currentY = 0;
+        let selectionRect = null;
+        let selectedBlocks = new Set(); // Store selected block positions as strings "row,col"
+        let hintTimeout = null;
+        let boardOffset = { left: 0, top: 0 };
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, initializing game...');
+            currentGameId = '[[${gameId}]]';
+            console.log('Game ID:', currentGameId);
             
             if (currentGameId && currentGameId !== '') {
-                // Load game data via API call
                 loadGameData();
             } else {
                 showMessage('Error: No game ID found. Please refresh the page.', true);
             }
+            
+            // Setup event listeners for drag selection
+            setupDragSelection();
+            
+            // Update board offset on resize
+            window.addEventListener('resize', updateBoardOffset);
+            updateBoardOffset();
         });
+        
+        function updateBoardOffset() {
+            const gameBoard = document.getElementById('gameBoard');
+            if (gameBoard) {
+                const rect = gameBoard.getBoundingClientRect();
+                boardOffset.left = rect.left;
+                boardOffset.top = rect.top;
+            }
+        }
+        
+        function setupDragSelection() {
+            const gameBoard = document.getElementById('gameBoard');
+            
+            // Mouse events
+            gameBoard.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return; // Only left mouse button
+                startDrag(e.clientX, e.clientY);
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                updateDrag(e.clientX, e.clientY);
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mouseup', endDrag);
+            
+            // Touch events for mobile
+            gameBoard.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                const touch = e.touches[0];
+                startDrag(touch.clientX, touch.clientY);
+                e.preventDefault();
+            });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging || e.touches.length !== 1) return;
+                const touch = e.touches[0];
+                updateDrag(touch.clientX, touch.clientY);
+                e.preventDefault();
+            });
+            
+            document.addEventListener('touchend', endDrag);
+            
+            // Prevent context menu on long press
+            gameBoard.addEventListener('contextmenu', (e) => e.preventDefault());
+        }
+        
+        function startDrag(clientX, clientY) {
+            isDragging = true;
+            
+            // Convert to board-relative coordinates
+            startX = clientX - boardOffset.left;
+            startY = clientY - boardOffset.top;
+            currentX = startX;
+            currentY = startY;
+            
+            // Create selection rectangle
+            selectionRect = document.createElement('div');
+            selectionRect.className = 'selection-rect';
+            const gameBoard = document.getElementById('gameBoard');
+            gameBoard.appendChild(selectionRect);
+            updateSelectionRect();
+            
+            // Clear previous selection
+            clearSelection();
+            
+            // Show combo display
+            document.getElementById('comboDisplay').style.display = 'block';
+            updateComboDisplay();
+        }
+        
+        function updateDrag(clientX, clientY) {
+            if (!isDragging) return;
+            
+            // Convert to board-relative coordinates
+            currentX = clientX - boardOffset.left;
+            currentY = clientY - boardOffset.top;
+            
+            // Constrain to board bounds
+            const gameBoard = document.getElementById('gameBoard');
+            const boardWidth = gameBoard.clientWidth;
+            const boardHeight = gameBoard.clientHeight;
+            
+            currentX = Math.max(0, Math.min(currentX, boardWidth));
+            currentY = Math.max(0, Math.min(currentY, boardHeight));
+            
+            updateSelectionRect();
+            updateSelectedBlocks();
+        }
+        
+        function updateSelectionRect() {
+            if (!selectionRect) return;
+            
+            const left = Math.min(startX, currentX);
+            const top = Math.min(startY, currentY);
+            const width = Math.abs(currentX - startX);
+            const height = Math.abs(currentY - startY);
+            
+            selectionRect.style.left = left + 'px';
+            selectionRect.style.top = top + 'px';
+            selectionRect.style.width = width + 'px';
+            selectionRect.style.height = height + 'px';
+        }
+        
+        function updateSelectedBlocks() {
+            if (!selectionRect) return;
+            
+            const gameBoard = document.getElementById('gameBoard');
+            const selectionRectBounds = selectionRect.getBoundingClientRect();
+            
+            selectedBlocks.clear();
+            
+            // Check each block if it's within selection rectangle
+            const blocks = gameBoard.querySelectorAll('.block:not(.block-0)');
+            blocks.forEach(block => {
+                const blockRect = block.getBoundingClientRect();
+                
+                // Check if block intersects with selection rectangle
+                if (rectsIntersect(selectionRectBounds, blockRect)) {
+                    const row = parseInt(block.dataset.row);
+                    const col = parseInt(block.dataset.col);
+                    selectedBlocks.add(`${row},${col}`);
+                    block.classList.add('selected');
+                } else {
+                    block.classList.remove('selected');
+                }
+            });
+            
+            updateComboDisplay();
+        }
+        
+        function rectsIntersect(rect1, rect2) {
+            return !(rect2.left > rect1.right || 
+                     rect2.right < rect1.left || 
+                     rect2.top > rect1.bottom ||
+                     rect2.bottom < rect1.top);
+        }
+        
+        function endDrag() {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            
+            // Remove selection rectangle
+            if (selectionRect) {
+                selectionRect.remove();
+                selectionRect = null;
+            }
+            
+            // Submit selected blocks if we have any
+            if (selectedBlocks.size > 0) {
+                submitSelectedBlocks();
+            } else {
+                // Hide combo display if no selection
+                setTimeout(() => {
+                    document.getElementById('comboDisplay').style.display = 'none';
+                }, 500);
+            }
+        }
+        
+        function clearSelection() {
+            selectedBlocks.clear();
+            const blocks = document.querySelectorAll('.block');
+            blocks.forEach(block => {
+                block.classList.remove('selected');
+            });
+            updateComboDisplay();
+        }
+        
+        function updateComboDisplay() {
+            const comboDisplay = document.getElementById('comboDisplay');
+            if (selectedBlocks.size === 0) {
+                comboDisplay.style.display = 'none';
+                return;
+            }
+            
+            // Calculate sum from displayed values
+            let sum = 0;
+            selectedBlocks.forEach(pos => {
+                const [row, col] = pos.split(',').map(Number);
+                const block = document.querySelector(`.block[data-row="${row}"][data-col="${col}"]`);
+                if (block) {
+                    const value = parseInt(block.textContent) || 0;
+                    sum += value;
+                }
+            });
+            
+            const comboSize = selectedBlocks.size;
+            const multiplier = Math.max(1, comboSize); // At least 1x multiplier
+            const potentialScore = 10 * comboSize * multiplier;
+            
+            document.getElementById('comboSum').textContent = sum;
+            document.getElementById('comboCount').textContent = comboSize;
+            document.getElementById('comboMultiplier').textContent = multiplier + 'x';
+            
+            // Visual feedback for valid/invalid combo
+            if (sum % 10 === 0 && comboSize >= 2) {
+                comboDisplay.classList.remove('combo-invalid');
+                comboDisplay.classList.add('combo-valid');
+                document.getElementById('comboSum').style.color = '#27ae60';
+            } else {
+                comboDisplay.classList.remove('combo-valid');
+                comboDisplay.classList.add('combo-invalid');
+                document.getElementById('comboSum').style.color = '#e74c3c';
+            }
+            
+            comboDisplay.style.display = 'block';
+        }
+        
+        function submitSelectedBlocks() {
+            if (selectedBlocks.size === 0) return;
+            
+            // Convert selected blocks to string format: "row,col;row,col;..."
+            const positionsString = Array.from(selectedBlocks).join(';');
+            
+            console.log('Submitting combo - Game ID:', currentGameId, 'Positions:', positionsString);
+            
+            if (selectedBlocks.size === 1) {
+                // Single block - use the simpler endpoint
+                const [row, col] = Array.from(selectedBlocks)[0].split(',').map(Number);
+                selectSingleBlock(row, col);
+                return;
+            }
+            
+            // Create form data for multiple blocks
+            const formData = new URLSearchParams();
+            formData.append('gameId', currentGameId);
+            formData.append('positions', positionsString);
+            
+            fetch('/game/select-multiple', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body: formData.toString()
+            })
+            .then(response => {
+                console.log('Response status:', response.status, response.statusText);
+                if (!response.ok) {
+                    // Try to get more error details
+                    return response.text().then(text => {
+                        console.error('Error response text:', text);
+                        throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Combo response data:', data);
+                
+                if (data.error) {
+                    showMessage('Error: ' + data.error, true);
+                    return;
+                }
+                
+                updateGameState(data);
+                clearSelection();
+                
+                // Show success message if combo was valid
+                if (data.messages && data.messages.length > 0) {
+                    const lastMessage = data.messages[data.messages.length - 1];
+                    showMessage(lastMessage, false);
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting combo:', error);
+                showMessage('Error: ' + error.message + '. Try single blocks for now.', true);
+                clearSelection();
+            });
+        }
         
         function loadGameData() {
             console.log('Loading game data for ID:', currentGameId);
             
-            // First try to get existing game state
             fetch('/game/api/state?gameId=' + currentGameId)
                 .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok: ' + response.status);
-                    }
+                    if (!response.ok) throw new Error('Network error: ' + response.status);
                     return response.json();
                 })
                 .then(data => {
@@ -240,82 +711,77 @@
                     }
                     
                     if (data.grid && Array.isArray(data.grid)) {
-                        initializeGame(data.grid);
+                        initializeGame(data.grid, data.hints);
                         document.getElementById('score').textContent = data.score || 0;
-                        showMessage('Game loaded! Select two numbers that sum to 10.');
-                    } else {
-                        showMessage('Error: Invalid game data received', true);
+                        showMessage('Drag to select multiple numbers! Release to submit your combo.');
                     }
                 })
                 .catch(error => {
                     console.error('Error loading game:', error);
-                    showMessage('Error loading game. Please refresh the page or start a new game.', true);
+                    showMessage('Error loading game. Please refresh.', true);
                 });
         }
         
-        function initializeGame(grid) {
+        function initializeGame(grid, hints) {
             const gameBoard = document.getElementById('gameBoard');
             gameBoard.innerHTML = '';
-            
-            console.log('Initializing grid with dimensions:', grid.length, 'x', grid[0]?.length || 0);
             
             // Create 10x20 grid
             for (let row = 0; row < 10; row++) {
                 for (let col = 0; col < 20; col++) {
                     const block = document.createElement('div');
-                    let value = 0;
-                    
-                    // Get value from grid
-                    if (grid[row] && grid[row][col] !== undefined) {
-                        // Handle both object format and simple number format
-                        if (typeof grid[row][col] === 'object') {
-                            value = grid[row][col].value || 0;
-                        } else {
-                            value = grid[row][col] || 0;
-                        }
-                    }
+                    const value = grid && grid[row] ? grid[row][col] || 0 : 0;
                     
                     block.className = `block block-${value}`;
+                    if (hints && hints[row] && hints[row][col]) {
+                        block.classList.add('hinted');
+                    }
                     block.textContent = value > 0 ? value : '';
                     block.dataset.row = row;
                     block.dataset.col = col;
                     
-                    // Only make clickable if not empty
-                    if (value > 0) {
-                        block.onclick = () => selectBlock(row, col);
-                    } else {
+                    // Make empty blocks non-interactive
+                    if (value === 0) {
                         block.style.cursor = 'default';
+                    } else {
+                        // Add click handler for single block selection (fallback)
+                        block.addEventListener('click', (e) => {
+                            if (isDragging) return; // Don't interfere with drag
+                            e.stopPropagation();
+                            const row = parseInt(block.dataset.row);
+                            const col = parseInt(block.dataset.col);
+                            selectSingleBlock(row, col);
+                        });
                     }
                     
                     gameBoard.appendChild(block);
                 }
             }
+            
+            // Update board offset after grid is created
+            setTimeout(updateBoardOffset, 100);
         }
         
-        function selectBlock(row, col) {
-            console.log('Selecting block at:', row, col, 'for game:', currentGameId);
-            
-            if (!currentGameId || currentGameId === '') {
+        function selectSingleBlock(row, col) {
+            if (!currentGameId) {
                 showMessage("Please start a new game first!", true);
                 return;
             }
             
+            const formData = new URLSearchParams();
+            formData.append('gameId', currentGameId);
+            formData.append('row', row);
+            formData.append('col', col);
+            
             fetch('/game/select', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
                 },
-                body: `gameId=${currentGameId}&row=${row}&col=${col}`
+                body: formData.toString()
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Server error: ' + response.status);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                console.log('Select response:', data);
-                
                 if (data.error) {
                     showMessage('Error: ' + data.error, true);
                     return;
@@ -325,22 +791,25 @@
             })
             .catch(error => {
                 console.error('Error selecting block:', error);
-                showMessage('Error: ' + error.message, true);
+                showMessage('Error selecting block', true);
             });
         }
         
         function getHint() {
-            if (!currentGameId || currentGameId === '') {
+            if (!currentGameId) {
                 showMessage("Please start a new game first!", true);
                 return;
             }
             
+            const formData = new URLSearchParams();
+            formData.append('gameId', currentGameId);
+            
             fetch('/game/hint', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
                 },
-                body: `gameId=${currentGameId}`
+                body: formData.toString()
             })
             .then(response => response.json())
             .then(data => {
@@ -349,9 +818,17 @@
                     return;
                 }
                 
+                if (data.hints) {
+                    initializeGame(data.grid || [], data.hints);
+                }
+                
                 if (data.messages && data.messages.length > 0) {
                     showMessage(data.messages[0]);
                 }
+                
+                // Clear hint after 5 seconds
+                if (hintTimeout) clearTimeout(hintTimeout);
+                hintTimeout = setTimeout(clearHint, 5000);
             })
             .catch(error => {
                 console.error('Error getting hint:', error);
@@ -359,32 +836,68 @@
             });
         }
         
+        function clearHint() {
+            if (!currentGameId) return;
+            
+            const formData = new URLSearchParams();
+            formData.append('gameId', currentGameId);
+            
+            fetch('/game/clear-hint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body: formData.toString()
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.hints) {
+                    initializeGame(data.grid || [], data.hints);
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing hint:', error);
+            });
+        }
+        
         function restartGame() {
             if (!currentGameId || currentGameId === '') {
-                showMessage("No game to restart!", true);
+                showMessage("No game to restart! Start a new game first.", true);
                 return;
             }
+            
+            console.log('Restarting game:', currentGameId);
+            
+            const formData = new URLSearchParams();
+            formData.append('gameId', currentGameId);
             
             fetch('/game/restart', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
                 },
-                body: `gameId=${currentGameId}`
+                body: formData.toString()
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Restart response:', data);
+                
                 if (data.error) {
                     showMessage('Error: ' + data.error, true);
                     return;
                 }
                 
                 updateGameState(data);
-                showMessage('Game restarted!');
+                showMessage('Game restarted! Drag to select multiple numbers.');
             })
             .catch(error => {
                 console.error('Error restarting game:', error);
-                showMessage('Error restarting game', true);
+                showMessage('Error: ' + error.message + '. Please refresh the page.', true);
             });
         }
         
@@ -393,22 +906,46 @@
                 document.getElementById('score').textContent = data.score;
             }
             if (data.grid) {
-                initializeGame(data.grid);
+                initializeGame(data.grid, data.hints || []);
             }
             if (data.messages && data.messages.length > 0) {
-                showMessage(data.messages.join(' '));
+                // Show the last message
+                showMessage(data.messages[data.messages.length - 1]);
             }
             if (data.gameOver) {
-                showMessage('Game Over! Final Score: ' + (data.score || 0));
+                setTimeout(() => {
+                    showGameOver(data.score || 0);
+                }, 1000);
             }
         }
         
         function showMessage(message, isError = false) {
             const messageBox = document.getElementById('messageBox');
             messageBox.innerHTML = isError ? 
-                `<span style="color: #FF6B6B;">❌ ${message}</span>` : 
-                `💬 ${message}`;
+                `<span style="color: #e74c3c;">❌ ${message}</span>` : 
+                `💡 ${message}`;
             console.log('Message:', message);
+        }
+        
+        function showGameOver(score) {
+            const gameOverDiv = document.createElement('div');
+            gameOverDiv.className = 'game-over';
+            gameOverDiv.innerHTML = `
+                <div class="game-over-content">
+                    <h2>🏆 Game Over! 🏆</h2>
+                    <div class="final-score">${score} Points</div>
+                    <p>No more valid combos available!</p>
+                    <button class="new-game-btn" style="margin-top: 20px; font-size: 1.2em;" 
+                            onclick="startNewGame()">
+                        🎯 Play Again
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(gameOverDiv);
+        }
+        
+        function startNewGame() {
+            window.location.href = '/game/start';
         }
     </script>
 </body>
